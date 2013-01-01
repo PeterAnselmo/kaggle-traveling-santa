@@ -2,9 +2,6 @@
 #include <fstream>
 #include <iostream>
 #include <set>
-#include <string>
-#include <vector>
-//#include "book.h"
 #include "tsp.h"
 
 using namespace std;
@@ -17,7 +14,7 @@ __global__ void compute_distances(int, int, int, int*, int*, int*);
 
 
 //global variables
-int num_nodes;
+int num_nodes, num_array_bytes;
 int num_devices;
 int *x, *y, *dist;
 int **dev_x, **dev_y, **dev_dist;
@@ -25,36 +22,45 @@ set<edge> used_edges;
 
 int main(int argc, char* argv[]){
 
+    //get number of nodes before reading coords, 
+    //as dynamic arrays must already be sized.
     num_nodes = get_num_nodes(argv[1]);
+    num_array_bytes = num_nodes*sizeof(int);
 
+    //coordinates and distances on host
     x = new int[num_nodes];
     y = new int[num_nodes];
     dist = new int[num_nodes];
-    read_coords(argv[1], num_nodes, x, y);
-    cudaGetDeviceCount(&num_devices);
+
+    //coordinates and distances on each device
     dev_x = new int*[num_devices];
     dev_y = new int*[num_devices];
     dev_dist = new int*[num_devices];
 
+    //get id, x & y values from file
+    read_coords(argv[1], num_nodes, x, y);
+
+    //allocate memory on device and tranfer coordinates
+    cudaGetDeviceCount(&num_devices);
     for(int i=0; i<num_devices; ++i){
         cudaSetDevice(i);
 
-        cudaMalloc( (void**)&dev_x[i], num_nodes*sizeof(int));
-        cudaMalloc( (void**)&dev_y[i], num_nodes*sizeof(int));
-        cudaMalloc( (void**)&dev_dist[i], num_nodes*sizeof(int));
+        cudaMalloc( (void**)&dev_x[i], num_array_bytes);
+        cudaMalloc( (void**)&dev_y[i], num_array_bytes);
+        cudaMalloc( (void**)&dev_dist[i], num_array_bytes);
 
-        cudaMemcpy(dev_x[i], x, num_nodes*sizeof(int), cudaMemcpyHostToDevice );
-        cudaMemcpy(dev_y[i], y, num_nodes*sizeof(int), cudaMemcpyHostToDevice );
+        cudaMemcpy(dev_x[i], x, num_array_bytes, cudaMemcpyHostToDevice );
+        cudaMemcpy(dev_y[i], y, num_array_bytes, cudaMemcpyHostToDevice );
     }
 
+    //initialize used node arrays
     bool used1[num_nodes], used2[num_nodes];
     for(int i=0; i<num_nodes; ++i){
-        used1[i] = false;
-        used2[i] = false;
+        used1[i] = used2[i] = false;
     }
 
+    //take the first points from each path at random
     srand(time( NULL ));
-    //srand(1);
     int id1 = rand() % num_nodes;
     used1[id1] = true;
     int id2 = rand() % num_nodes;
@@ -62,6 +68,7 @@ int main(int argc, char* argv[]){
     cout << "path1\tpath2" << endl;
     cout << id1 << "\t" << id2 << endl;
     
+    //for each path, add nodes using nearest neighbor algorithm
     for(int i=1; i<num_nodes; ++i){
         id1 = get_nearest_neighbor(id1, used1);
         id2 = get_nearest_neighbor(id2, used2);
@@ -75,6 +82,10 @@ int main(int argc, char* argv[]){
     }
 }
 
+/* Gets nearest neighbor by computing the distance to all other
+ * nodes (in parrallel on the GPU), then iterating the distances
+ * and noting the closest available to return.  Deterministic.
+ */
 int get_nearest_neighbor(int start, bool used[]){
 
     if( DEBUG ){
@@ -86,8 +97,10 @@ int get_nearest_neighbor(int start, bool used[]){
         cout << endl;
     }
 
-    const int BLOCKS_PER_GRID = (num_nodes + THREADS_PER_BLOCK -1)/THREADS_PER_BLOCK;
-    int blocks_per_device = BLOCKS_PER_GRID / num_devices;
+    //split workload evenly amongst devices - each device responsible for a 
+    //congruant block of distances.
+    int blocks_per_grid = (num_nodes + THREADS_PER_BLOCK -1)/THREADS_PER_BLOCK;
+    int blocks_per_device = blocks_per_grid / num_devices;
     if( blocks_per_device == 0) blocks_per_device = 1;
     int nodes_per_device = ceil(static_cast<double>(num_nodes) / num_devices);
     int offset, offset_end;
@@ -99,24 +112,22 @@ int get_nearest_neighbor(int start, bool used[]){
                         << ", device: " << i 
                         << ", blocks: " << blocks_per_device 
                         << endl;
+
         compute_distances<<<blocks_per_device,THREADS_PER_BLOCK>>>(start, offset, num_nodes, dev_x[i], dev_y[i], dev_dist[i]);
     }
 
-    if(DEBUG) cout << "Finished computing distances" << endl;
-
-
-    int low_id = -1;
+    int low_id = -1;//-1 used as a sentinel to check valid id found
     int low_dist;
     bool first = true;
 
-
+    //iterate of distances computd by each device
     for(int i=0; i<num_devices; ++i){
+
         offset = i*nodes_per_device;
         offset_end = offset + nodes_per_device;
+
         cudaSetDevice(i);
-        if(DEBUG2) cout << "Copying mem from Device: " << i << endl;
-        cudaMemcpy(dist, dev_dist[i], num_nodes*sizeof(int), cudaMemcpyDeviceToHost );
-        if(DEBUG2) cout << "Done Copying." << endl;
+        cudaMemcpy(dist, dev_dist[i], num_array_bytes, cudaMemcpyDeviceToHost );
 
         //find the lowest distance from this block per card.  the offset_end
         //may round up to be higher then the number of nodes, so check that.
@@ -124,12 +135,12 @@ int get_nearest_neighbor(int start, bool used[]){
 
             if(DEBUG2) cout << end << ":" << dist[end] << " ";
 
+            //if this node has been used in this path
             if(used[end] || 
                start == end ){ continue; }
             
-            //if this path has already been used
-            edge current_edge(start, end);
-            if( used_edges.find(current_edge) != used_edges.end()){
+            //if this edge has already been used
+            if( used_edges.find(edge(start,end)) != used_edges.end()){
                 continue;
             }
 
@@ -159,7 +170,7 @@ int get_nearest_neighbor(int start, bool used[]){
 }
 
 //since we're only interested in the relative distances, we don't need
-//to comput the square root of the pythagorean theorem.
+//to compute the square root in the pythagorean theorem.
 __global__ void compute_distances(int start, int offset, int num_nodes, int *x, int *y, int *dist){
     int tid = blockIdx.x*blockDim.x + threadIdx.x + offset;
     if( tid < num_nodes ){
