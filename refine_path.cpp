@@ -1,12 +1,8 @@
-//#include <bitset>
 #include <cmath>
 #include <fstream>
 #include <iostream>
 #include <list>
 #include <set>
-//#include <string>
-#include <vector>
-//#include "book.h"
 #include "tsp.h"
 
 using namespace std;

@@ -5,7 +5,6 @@
 #include <set>
 #include <sstream>
 #include <string>
-#include <vector>
 #include "tsp.h"
 
 using namespace std;
@@ -33,7 +32,8 @@ int main(int argc, char *argv[]){
     ifstream solution(argv[2]);
 
     string line;
-    getline(solution, line); //header row
+    getline(solution, line); //discard header row
+
     int pos1, last_pos1, pos2, last_pos2;
     double distance1, distance2;
     distance1 = distance2 = 0;

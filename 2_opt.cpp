@@ -1,13 +1,10 @@
-//#include <bitset>
 #include <algorithm>
 #include <cmath>
 #include <fstream>
 #include <iostream>
 #include <list>
 #include <set>
-//#include <string>
 #include <vector>
-//#include "book.h"
 #include "tsp.h"
 
 using namespace std;
@@ -22,9 +19,9 @@ void make_2_opt(vector<int>&, set<edge>&, set<edge>&);
 
 //Global variables.
 int num_nodes;
-set<edge> used_edges1, used_edges2; //requies fast lookup, rarely modified
-list<int> path1, path2; //reequires sequential access and ease of modification
-int *x, *y; //will be dynamic arraysr. equires fast random acces, never modified
+set<edge> used_edges1, used_edges2;
+list<int> path1, path2;
+int *x, *y; //will be dynamic arrays.
 
 
 int main(int argc, char* argv[]){
