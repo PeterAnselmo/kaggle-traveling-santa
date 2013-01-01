@@ -38,7 +38,7 @@ int main(int argc, char* argv[]){
     read_coords(argv[1], num_nodes, x, y); //three column list of id, x coord, y coord
     read_paths(argv[2], used_edges1, used_edges2, path1, path2); //two column list of points on two paths
 
-    int num_iterations = num_nodes/5; //attempt to refactor worst 20%
+    int num_iterations = num_nodes/10; //attempt to refactor worst 10%
     set<int> path1_refactored, path2_refactored;
     for(int i=0; i<num_iterations; ++i){
         refactor_path(path1, used_edges1, used_edges2, path1_refactored);
