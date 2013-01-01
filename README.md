@@ -4,8 +4,12 @@ kaggle-traveling-santa
 Some tools written in C++/CUDA to create solutions for the Traveling Santa Problem (a slight variation on the Traveling Salesman problem) as presented by Kaggle.
 [View Taveling Santa Problem on Kaggle Website](http://www.kaggle.com/c/traveling-santa-problem)
 
+##Requirements
+* You will need to have a recent version of gcc with support for C++11 features.
+* You must have a CUDA capable GPU.
+* you will need the nVidia driver and nvcc installed.
+
 ##Compiling
-* You will need to have gcc and nvcc installed (You're on your own there)
 * Extract files, move to directory, and type `make`
 
 ##Usage
