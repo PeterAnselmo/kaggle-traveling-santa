@@ -56,5 +56,10 @@ tail output.txt
 Verify there are the correct number of lines and that the output from `tail` contains only nodes and no error messages.
 
 
+##Feedback
+Please let me know if you spot thing that could be improved in the code; The hope of constructive feedback is the main reason I posted my solution.
+
+Cheers,
+Peter
 
 
