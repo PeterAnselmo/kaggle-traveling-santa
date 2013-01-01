@@ -120,6 +120,10 @@ std::string exec(string cmd) {
     return result;
 }
 
+/* get_num_nodes() - when passed a file, assumes that is is a file
+ * with one line per node, and a single header line.  Returns
+ * number of lines - 1 
+ */
 int get_num_nodes(char* filename){
 
     string wc_cmd = "wc -l ";
